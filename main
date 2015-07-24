@@ -1,0 +1,460 @@
+
+#include <iostream>
+#include <iomanip>
+#include <cmath>
+#include <time.h>
+#include <gsl/gsl_rng.h>	// GSL random number generators
+#include <gsl/gsl_randist.h>	// GSL random distributions
+#include <fstream>
+#include <sstream> 
+#include "bsumtree.h"
+using namespace std;
+
+
+
+#define NX 100
+#define NY 100
+#define NZ 100
+
+gsl_rng * rng_ptr;
+//pointer to random number generator(rng) 
+
+double          random_exp(double a) 
+{	
+	return gsl_ran_exponential(rng_ptr, a);	
+} 
+
+double 
+random_gaussian(double sigma) 
+{	
+	return gsl_ran_gaussian(rng_ptr, sigma);
+} 
+
+double 
+random_uniform() 
+{
+	return gsl_ran_flat(rng_ptr, 0, 1);
+} 
+
+class Position 
+{
+public:	
+	int             x, y, z;
+	
+	Position():	x(), y(), z() {
+	};
+	
+	Position(int x_, int y_, int z_):x(x_), y(y_), z(z_) {
+	};
+};
+
+
+class Vector 
+{
+public:	
+	double          x, y, z;
+	
+	double          abs() {
+		return sqrt(x * x + y * y + z * z);
+	}              
+	
+	Vector():                x(), y(), z() {
+	};
+	
+	Vector(double x_, double y_, double z_):x(x_), y(y_), z(z_) {
+	};
+};
+
+
+Position operator + (const Position & a, const Position & b) {
+	return Position(a.x + b.x, a.y + b.y, a.z + b.z);
+} 
+
+Vector operator + (const Vector & a, const Vector & b) {
+	return Vector(a.x + b.x, a.y + b.y, a.z + b.z);
+} 
+
+Vector operator - (const Vector & a, const Vector & b) {
+	return Vector(a.x - b.x, a.y - b.y, a.z - b.z);
+} 
+
+Vector operator / (const Vector & a, double d) {
+	return Vector(a.x / d, a.y / d, a.z / d);
+} 
+
+Vector operator * (double d, const Vector & a) {
+	return Vector(a.x * d, a.y * d, a.z * d);
+} 
+
+Vector operator * (const Vector & a, double d) {
+	return Vector(a.x * d, a.y * d, a.z * d);
+} 
+
+double operator *(const Vector & v, const Position & p) {
+	return v.x * p.x + v.y * p.y + v.z * p.z;
+} 
+
+double operator *(const Position & p, const Vector & v) {
+	return v.x * p.x + v.y * p.y + v.z * p.z;
+} 
+
+double operator *(const Vector & v, const Vector & p) {
+	return v.x * p.x + v.y * p.y + v.z * p.z;
+} 
+
+double 
+rate_for_E(double E, double k0) 
+{
+	if (E < 0) {
+		return k0;
+	} else {
+		return k0 * exp(- E);
+	} 
+}
+
+Vector outer(const Vector & a, const Vector & b) 
+{
+	
+	return Vector(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+	
+} 
+
+void 
+periodic(Position & pos)    // periodic boundary conditions for all directions
+{
+	
+	if (pos.y < 0)
+		pos.y += NY;
+	
+	if (pos.y >= NY)
+		pos.y -= NY;
+	
+	
+	if (pos.z < 0)
+		pos.z += NZ;
+	
+	if (pos.z >= NZ)
+		pos.z -= NZ;
+	
+	
+	if (pos.x < 0)
+		pos.x += NX;
+	
+	if (pos.x >= NX)
+		pos.x -= NX;
+	
+} 
+
+int 
+main(int argc, char *argv[]) 
+{
+	
+	clock_t t1,t2;
+    t1=clock();
+
+
+	rng_ptr = gsl_rng_alloc(gsl_rng_taus2);
+	//allocate the rng 
+	gsl_rng_set(rng_ptr, 5);
+	//seed the rng 
+	
+	//string input;
+	double k;
+	double SIGMA;
+	int NDIS;
+	int max_hops;
+	
+	cout << "Enter hopping rate (in units of hf), k0: ";
+	cin >> k;
+	cout << "Enter the disorder (in units of T), sigma: ";
+	cin >> SIGMA;
+	cout << "Enter the number of disorder configurations to average over: ";
+	cin >> NDIS;
+	cout << "Enter the maximum number of hops: ";
+	cin >> max_hops;
+	
+	std::ostringstream strs1; //convert doubles into strings
+	strs1 << k;
+	std::string input1 = strs1.str();
+	std::ostringstream strs2;
+	strs2 << SIGMA;
+	std::string input2 = strs2.str();
+	std::ostringstream strs3;
+	strs3 << NDIS;
+	std::string input3 = strs3.str();
+	std::ostringstream strs4;
+	strs4 << max_hops;
+	std::string input4 = strs4.str();
+	
+	std::ofstream out_file;
+	out_file.open(("k"+input1+"s"+input2+".dat").c_str());
+	cout << "The output file is " << "k"+input1+"s"+input2+".dat" << endl;
+	
+	double          BFIELD = 0;
+	double          GAMMA = 0.025;
+	double			k0	= k/6.;
+		
+	int HOPS; 
+	
+	Position hops[] = {
+		Position(1, 0, 0), Position(-1, 0, 0), Position(0, 1, 0), 
+		Position(0, -1, 0), Position(0, 0, 1), Position(0, 0, -1)
+	};
+	
+
+	
+	double time, tOld, tNew, angle;
+	
+	double time_max;
+	double dt;
+
+	
+	for (int id = 0; id < NDIS; id++) {
+		
+		HOPS = 1; 
+		
+		double        sim_time = 0;
+		
+		Vector spin(0, 0, 1);
+		Vector spinOld(0, 0, 1);
+		Vector spinNew(0, 0, 1);
+
+		
+		double ***energy = new double**[NX]; // dynamic allocation for site energies
+		Vector ***Bfield = new Vector**[NX];
+		
+		
+		for (int ix = 0; ix < NX; ix++) {
+			
+			energy  [ix] = new double*[NY]; 
+			
+			Bfield[ix] = new Vector*[NY];
+			
+			
+			for (int iy = 0; iy < NY; iy++) { 
+				
+				
+				energy  [ix][iy] = new double[NZ]; 
+				
+				Bfield[ix][iy] = new Vector[NZ];
+				
+				for (int iz = 0; iz < NZ; iz++) {
+
+
+					}
+				
+				}
+
+			}
+
+		
+		for (int x = 0; x < NX; x++) {
+			
+			for (int y = 0; y < NY; y++) {
+				
+				for (int z = 0; z < NZ; z++) {
+					
+				//	energy[x][y][z] = random_gaussian(SIGMA);   // this is DOS
+					energy[x][y][z] = -random_exp(SIGMA);   // this is EDOS
+
+					//rand 
+					Bfield[x][y][z].x = random_gaussian(GAMMA);
+					
+					Bfield[x][y][z].y = random_gaussian(GAMMA);
+					
+					Bfield[x][y][z].z = random_gaussian(GAMMA);
+					
+				} 
+			} 
+		} 
+
+		s_bsumtree prob_tree; // wieghting starting points on y-z plane with Boltzmann factors (more likely for spin to start in lower energies)
+		prob_tree.init(NY*NZ);
+		
+		for (int y = 0; y < NY; y++) {
+			for (int z = 0; z < NZ; z++) {
+				double prob = 1; 
+				//double prob = exp(energy[0][y][z]);
+				prob_tree.setelement(y + NY*z , prob);
+			}
+		}
+		
+		double tot_prob = prob_tree.compute_sum();
+		double randn = random_uniform();
+		double rand_prob = randn*tot_prob;
+		
+		int index = prob_tree.search(rand_prob);
+		int y = index % NY;
+		int z = index / NY;
+		
+		Position pos(0, y, z);	
+
+		while (HOPS < max_hops + 1) {
+			
+			//make time step 
+			
+			//make rates 
+
+			double *rates;
+			rates = new double[6];
+			
+			double          total_rate = 0;
+			
+			
+			for (int r = 0; r < 6; r++) {
+				
+				Position target = pos + hops[r];
+	
+				periodic(target);
+				
+				
+				rates[r] = rate_for_E(energy[target.x][target.y][target.z] - energy[pos.x][pos.y][pos.z], k0);
+				
+				total_rate += rates[r];
+				
+			} 
+			
+			//choose hop:		
+			
+			double          rand_rate = random_uniform() * total_rate;
+			int             ihop;
+			
+			for (ihop = 0; ihop < 6; ihop++) {
+				
+				if (rand_rate < rates[ihop])
+					
+					break;
+				
+				
+				rand_rate -= rates[ihop];
+				
+			} 
+						
+			//ihop is chosen hop 
+			
+						
+			Position target = pos + hops[ihop];
+			
+			periodic(target);
+			
+			//precess spin:	
+			
+			time = random_exp(1.0 / total_rate);
+			//exp rand 
+			tNew = sim_time + time;
+			
+			//Vector B(random_gaussian(GAMMA), random_gaussian(GAMMA), random_gaussian(GAMMA)); // MH w/ no field correlations
+			Vector B = Bfield[pos.x][pos.y][pos.z]; // MH
+			Vector rot_axis = B / B.abs();
+			
+			angle = B.abs();
+			
+			tOld = sim_time;
+			spinOld = spin;
+			
+			sim_time = tNew;
+			
+			//spinNew = (1 - GAMMA * GAMMA) * spinOld;
+			spinNew = ((1 - cos(angle)) * (spinOld * rot_axis)) * rot_axis + cos(angle) * spinOld +sin(angle) * outer(rot_axis, spinOld);
+			
+			//for linear sampling
+			time_max = 100.;
+			dt = 1.;
+			 
+			 for (double t = 0.01; t <= time_max; t+= dt) {
+			 
+			 if (t >= tOld && t < tNew) {
+			 
+			 //	cout << t << " " << tOld << " " << tNew << " " << spin.z << endl;
+			 out_file << t << "\t" << spin.z << std::endl;
+			 
+			 }
+			 
+			 spin = spinNew;
+			}//*/
+			
+			// for log sampling
+			double x = 5.; // sampling time logarithmically 
+			double dx = 0.5;
+			
+		//	for (double t = dx; t <= x; t+= dx) {
+	/*		for (double t = dt; t <= x; t+= dx) {
+	
+				
+				if (pow(10,t) >= tOld && pow(10,t) < tNew) {
+					
+					//	cout << t << " " << tOld << " " << tNew << " " << spin.z << endl;
+					out_file << pow(10,t) << "\t" << spin.z << std::endl;
+					
+					
+				}
+				else {
+					//spinNew = spinOld;	
+				}
+				
+				if (pow(10,t) >= tNew) {// get out of loop and go to next hop
+					//	break;
+				}
+				
+				spin = spinNew;
+				
+				//	cout << t << " " << tOld << " " << tNew << " " << spin << endl;
+			}//*/
+
+			//perform hop:		
+			
+			pos = target;
+									
+			
+			HOPS++;
+
+			delete [] rates;
+			
+		} 
+		
+		
+		for (int ix = 0; ix < NX; ix++) {    // deallocation of energy memory
+			for (int iy = 0; iy < NY; iy++) {
+				delete[] energy[ix][iy];
+				delete[] Bfield[ix][iy];
+			}
+			delete[] energy[ix];
+			delete[] Bfield[ix];
+		}
+		delete[] energy;
+		delete[] Bfield;
+			
+	} 
+		
+	out_file.close();
+
+
+	std::cout << "(NX,NY,NZ) = " << "\t (" << NX<<", "<<NY<<", "<<NZ<<")" << std::endl;
+	std::cout << "disorder configs = " << "\t" << NDIS << std::endl;
+	std::cout << "k0 = " << "\t" << 6. * k0 << std::endl;
+	std::cout << "sigma = " << "\t" << SIGMA << std::endl;
+
+	
+//	std::cout << std::endl << "X\tpol" << std::endl;
+	
+	
+#ifdef WIN32
+	char            c;
+    std::cin >> c;
+#endif	/* 
+*/
+	
+	gsl_rng_free(rng_ptr);
+	//free the random number generator 
+	
+	t2=clock();
+    float diff ((float)t2-(float)t1);
+	float seconds = diff / CLOCKS_PER_SEC;
+	std::cout<< "timer:\t" << seconds<< " seconds"<<std::endl;
+	std::cout<< "length of table = \t" << (HOPS - 1) * NDIS << " "<<std::endl;
+	// system ("pause");
+
+	return 0;
+	
+} 
+
