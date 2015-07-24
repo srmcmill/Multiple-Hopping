@@ -1,0 +1,4 @@
+#icc -Wall -c SpinDiffusion.cpp
+#icc -c SpinDiffusion.cpp
+gcc -c SpinDiffusion.cpp
+gcc -nofor-main -lstdc++ SpinDiffusion.o -lgsl -lgslcblas -o DIFFUSE
