@@ -1,0 +1,13 @@
+# this script average over the different disorder configurations (NDIS)
+
+echo "Enter input filename:"
+   read input
+echo "Enter output filename:"
+   read output
+   
+awk '{a[$1]+=$2; c[$1]++} END {for(x in a) printf "%s %.6f\n",x,a[x]/c[x] }' $input > temp
+
+sort -k1g temp > $output
+
+
+#awk '{a[$1]+=$2; c[$1]++} END {for(x in a) printf "%s %.6f\n",x,a[x]/c[x] > "outk10s0.dat"}' $input
