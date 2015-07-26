@@ -15,6 +15,10 @@ using namespace std;
 #define NY 100
 #define NZ 100
 #define Pi 3.1415926535897932384626433832795028
+#define HBar 1.0546 * 10^(-34)
+#define GammaSqr 1.07*10^(-3)  //Alq3 electron polaron value (Yu)
+#define Cx 	sqrt(1.07*10^(-3))/sqrt(2)
+
 
 gsl_rng * rng_ptr;
 //pointer to random number generator(rng) 
@@ -35,6 +39,50 @@ random_uniform()
 {
 	return gsl_ran_flat(rng_ptr, 0, 1);
 } 
+
+double 
+ModSqrVpp(double itheta, double iphi, double ftheta, double fphi)
+{
+	int Cx;
+	int Cy;
+	int Cz;
+	
+	MSvpp = (sin(ftheta)*cos(fphi)*sin(itheta)*cos(iphi)*vjix + sin(ftheta)*sin(fphi)*sin(itheta)*sin(iphi)*vjiy + cos(ftheta)*cos(itheta)*vjiz + Cz*(sin(itheta)*cos(iphi)*sin(ftheta)*sin(fphi) - sin(itheta)*sin(iphi)*sin(ftheta)*cos(fphi)))^2;
+	return MSvpp;
+}
+
+double
+ModSqrVmm(double itheta, double iphi, double ftheta, double fphi)
+{
+	int Cx;
+	int Cy;
+	int Cz;
+	
+	MSvmm = (sin(ftheta)*cos(fphi)*sin(itheta)*cos(iphi)*vjix + sin(ftheta)*sin(fphi)*sin(itheta)*sin(iphi)*vjiy + cos(ftheta)*cos(itheta)*vjiz - Cz*(sin(itheta)*cos(iphi)*sin(ftheta)*sin(fphi) - sin(itheta)*sin(iphi)*sin(ftheta)*cos(fphi)))^2;
+	return MSvmm;
+}
+
+double
+ModSqrVpm(double itheta, double iphi, double ftheta, double fphi)
+{
+	int Cx;
+	int Cy;
+	int Cz;
+	
+	MSvpm = (Cx(sin(itheta)*sin(iphi)*cos(ftheta) - cos(itheta)*sin(ftheta)*sin(fphi)))^2 + (-Cy(cos(itheta)*sin(ftheta)*cos(fphi) - sin(itheta)*cos(iphi)*cos(ftheta)))^2;
+	return MSvpm;
+}
+
+double
+ModSqrVmp(double itheta, double iphi, double ftheta, double fphi)
+{
+	int Cx;
+	int Cy;
+	int Cz;
+	
+	MSvmp = (Cx(sin(itheta)*sin(iphi)*cos(ftheta) - cos(itheta)*sin(ftheta)*sin(fphi)))^2 + (Cy(cos(itheta)*sin(ftheta)*cos(fphi) - sin(itheta)*cos(iphi)*cos(ftheta)))^2;
+	return MSvmp
+}
 
 class Position 
 {
@@ -192,7 +240,10 @@ main(int argc, char *argv[])
 	
 	double          BFIELD = 0;
 	double          GAMMA = 0.025;
-	double			k0	= k/6.;
+	double		k0	= k/6.;
+	int 		state = 0;
+	
+	
 		
 	int HOPS; 
 	
@@ -282,12 +333,12 @@ main(int argc, char *argv[])
 
 		
 		
-		double ReVpp = sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*vjix + sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*vjiy + cos(theta[jx][jy][jz])*cos(theta[ix][iy][iz])*vjiz + Cz*(sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz])); 
-		double ReVmm = sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*vjix + sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*vjiy + cos(theta[jx][jy][jz])*cos(theta[ix][iy][iz])*vjiz - Cz*(sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz]));
-		double ReVpm = Cx(sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*cos(theta[jx][jy][jz]) - cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]));
-		double ImVpm = -Cy(cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*cos(theta[jx][jy][jz]));
-		double ReVmp = Cx(sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*cos(theta[jx][jy][jz]) - cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]));
-		double ImVmp = Cy(cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*cos(theta[jx][jy][jz]));
+	//	double ReVpp = sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*vjix + sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*vjiy + cos(theta[jx][jy][jz])*cos(theta[ix][iy][iz])*vjiz + Cz*(sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz])); 
+	//	double ReVmm = sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*vjix + sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*vjiy + cos(theta[jx][jy][jz])*cos(theta[ix][iy][iz])*vjiz - Cz*(sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz]));
+	//	double ReVpm = Cx(sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*cos(theta[jx][jy][jz]) - cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]));
+	//	double ImVpm = -Cy(cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*cos(theta[jx][jy][jz]));
+	//	double ReVmp = Cx(sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*cos(theta[jx][jy][jz]) - cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]));
+	//	double ImVmp = Cy(cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*cos(theta[jx][jy][jz]));
 		
 		
 		
@@ -327,21 +378,58 @@ main(int argc, char *argv[])
 			//make rates 
 
 			double *rates;
-			rates = new double[6];
+			rates = new double[12]; \\two matrix elements per NN
 			
 			double          total_rate = 0;
 			
+			//make rates from V matrix using Fermi's golden rule
+			double *Vrate;
+			Vrate = new double[12];
+			int n = 0;
 			
 			for (int r = 0; r < 6; r++) {
-				
+			
 				Position target = pos + hops[r];
 	
 				periodic(target);
 				
+				if (state = 0){  
+					Vrate[n] = ModSqrVpp(theta[pos.x][pos.y][pos.z], phi[pos.x][pos.y][pos.z], theta[target.x][target.y][target.z], phi[target.x][target.y][target.z]);		
+					
+					rates[n] = 2*Pi/HBar * Vrate[n] * rate_for_E(energy[target.x][target.y][target.z] - energy[pos.x][pos.y][pos.z], k0);
 				
-				rates[r] = rate_for_E(energy[target.x][target.y][target.z] - energy[pos.x][pos.y][pos.z], k0);
+					total_rate += rates[n];
+					
+					n++;
+					
+					Vrate[n] = ModSqrVmp(theta[pos.x][pos.y][pos.z], phi[pos.x][pos.y][pos.z], theta[target.x][target.y][target.z], phi[target.x][target.y][target.z]);
+					
+					rates[n] = 2*Pi/HBar * Vrate[n] * rate_for_E(energy[target.x][target.y][target.z] - energy[pos.x][pos.y][pos.z], k0);
 				
-				total_rate += rates[r];
+					total_rate += rates[n];
+					
+					n++;
+					}
+				else if (state = 1){
+					Vrate[n] = ModSqrVmm(theta[pos.x][pos.y][pos.z], phi[pos.x][pos.y][pos.z], theta[target.x][target.y][target.z], phi[target.x][target.y][target.z]);		
+					
+					rates[n] = 2*Pi/HBar * Vrate[n] * rate_for_E(energy[target.x][target.y][target.z] - energy[pos.x][pos.y][pos.z], k0);
+				
+					total_rate += rates[n];
+					
+					n++;
+					
+					Vrate[n] = ModSqrVpm(theta[pos.x][pos.y][pos.z], phi[pos.x][pos.y][pos.z], theta[target.x][target.y][target.z], phi[target.x][target.y][target.z]);
+					
+					rates[n] = 2*Pi/HBar * Vrate[n] * rate_for_E(energy[target.x][target.y][target.z] - energy[pos.x][pos.y][pos.z], k0);
+				
+					total_rate += rates[n];
+					
+					n++;
+					}
+				else { 
+					cout << "Error in state variable!" << endl;	
+					}
 				
 			} 
 			
@@ -350,7 +438,7 @@ main(int argc, char *argv[])
 			double          rand_rate = random_uniform() * total_rate;
 			int             ihop;
 			
-			for (ihop = 0; ihop < 6; ihop++) {
+			for (ihop = 0; ihop < 12; ihop++) {
 				
 				if (rand_rate < rates[ihop])
 					
@@ -363,11 +451,59 @@ main(int argc, char *argv[])
 						
 			//ihop is chosen hop 
 			
-						
+			
+			// if ihop 0 or even state = 0, if odd state = 1
+			
+			if (ihop == 0 || ihop = 2 || ihop == 4 || ihop == 6 || ihop == 8 || ihop == 10){
+				state = 0;
+				}
+				
+			if (ihop == 1 || ihop = 3 || ihop == 5 || ihop == 7 || ihop == 9 || ihop == 11){
+				state = 1;
+				}
+			
+			// Revalue ihop so that it indicates the correct target when used as the argument of hops[]
+			
+			if (ihop = 0 || ihop = 1){
+				ihop = 0;
+				}
+			
+			if (ihop = 2 || ihop = 3){
+				ihop = 1;
+				}
+				
+			if (ihop = 4 || ihop = 5){
+				ihop = 2;
+				}
+				
+			if (ihop = 6 || ihop = 7){
+				ihop = 3;
+				}
+				
+			if (ihop = 8 || ihop = 9){
+				ihop = 4;
+				}
+				
+			if (ihop = 10 || ihop = 11){
+				ihop = 5;
+				}
+				
 			Position target = pos + hops[ihop];
 			
 			periodic(target);
 			
+			
+			//Calculate Spin along z
+			
+			if (state = 0){
+			
+			Sz = 1 - GammaSqr * (cos(theta[target.x][target.y][target.z]))^2; 
+			}
+			
+			if (state = 1){
+			
+			Sz = -(1 - GammaSqr * (cos(theta[target.x][target.y][target.z]))^2); 
+			}
 			//precess spin:	
 			
 			time = random_exp(1.0 / total_rate);
@@ -396,8 +532,8 @@ main(int argc, char *argv[])
 			 
 			 if (t >= tOld && t < tNew) {
 			 
-			 //	cout << t << " " << tOld << " " << tNew << " " << spin.z << endl;
-			 out_file << t << "\t" << spin.z << std::endl;
+			 //	cout << t << " " << tOld << " " << tNew << " " << Sz << endl;
+			 out_file << t << "\t" << Sz << std::endl;
 			 
 			 }
 			 
@@ -414,8 +550,8 @@ main(int argc, char *argv[])
 				
 				if (pow(10,t) >= tOld && pow(10,t) < tNew) {
 					
-					//	cout << t << " " << tOld << " " << tNew << " " << spin.z << endl;
-					out_file << pow(10,t) << "\t" << spin.z << std::endl;
+					//	cout << t << " " << tOld << " " << tNew << " " << Sz << endl;
+					out_file << pow(10,t) << "\t" << Sz << std::endl;
 					
 					
 				}
