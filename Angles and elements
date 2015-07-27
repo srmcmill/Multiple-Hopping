@@ -17,8 +17,8 @@ using namespace std;
 #define Pi 3.1415926535897932384626433832795028
 #define HBar 1.0546 * 10^(-34)
 #define GammaSqr 1.07*10^(-3)  //Alq3 electron polaron value (Yu)
-#define Cx 	sqrt(1.07*10^(-3))/sqrt(2)
-
+#define Lambda 	sqrt(2*1.07*10^(-3))  //Lambda = Sqrt(2*GammaSqr)
+#define V	0.1 // in units of eV (Yu)
 
 gsl_rng * rng_ptr;
 //pointer to random number generator(rng) 
@@ -40,47 +40,38 @@ random_uniform()
 	return gsl_ran_flat(rng_ptr, 0, 1);
 } 
 
+
+//All V matrix elements are calculated with the following approx: vijx=vijy=vijz=V0
+
 double 
 ModSqrVpp(double itheta, double iphi, double ftheta, double fphi)
 {
-	int Cx;
-	int Cy;
-	int Cz;
 	
-	MSvpp = (sin(ftheta)*cos(fphi)*sin(itheta)*cos(iphi)*vjix + sin(ftheta)*sin(fphi)*sin(itheta)*sin(iphi)*vjiy + cos(ftheta)*cos(itheta)*vjiz + Cz*(sin(itheta)*cos(iphi)*sin(ftheta)*sin(fphi) - sin(itheta)*sin(iphi)*sin(ftheta)*cos(fphi)))^2;
+	MSvpp = V^2((sin(ftheta)*cos(fphi)*sin(itheta)*cos(iphi) + sin(ftheta)*sin(fphi)*sin(itheta)*sin(iphi) + cos(ftheta)*cos(itheta))^2 + (-Lambda*(sin(itheta)*cos(iphi)*sin(ftheta)*sin(fphi) - sin(itheta)*sin(iphi)*sin(ftheta)*cos(fphi)))^2);
 	return MSvpp;
 }
 
 double
 ModSqrVmm(double itheta, double iphi, double ftheta, double fphi)
 {
-	int Cx;
-	int Cy;
-	int Cz;
 	
-	MSvmm = (sin(ftheta)*cos(fphi)*sin(itheta)*cos(iphi)*vjix + sin(ftheta)*sin(fphi)*sin(itheta)*sin(iphi)*vjiy + cos(ftheta)*cos(itheta)*vjiz - Cz*(sin(itheta)*cos(iphi)*sin(ftheta)*sin(fphi) - sin(itheta)*sin(iphi)*sin(ftheta)*cos(fphi)))^2;
+	MSvmm = V^2((sin(ftheta)*cos(fphi)*sin(itheta)*cos(iphi) + sin(ftheta)*sin(fphi)*sin(itheta)*sin(iphi) + cos(ftheta)*cos(itheta))^2 + (Lambda*(sin(itheta)*cos(iphi)*sin(ftheta)*sin(fphi) - sin(itheta)*sin(iphi)*sin(ftheta)*cos(fphi)))^2);
 	return MSvmm;
 }
 
 double
 ModSqrVpm(double itheta, double iphi, double ftheta, double fphi)
 {
-	int Cx;
-	int Cy;
-	int Cz;
 	
-	MSvpm = (Cx(sin(itheta)*sin(iphi)*cos(ftheta) - cos(itheta)*sin(ftheta)*sin(fphi)))^2 + (-Cy(cos(itheta)*sin(ftheta)*cos(fphi) - sin(itheta)*cos(iphi)*cos(ftheta)))^2;
+	MSvpm = V^2((-Lambda*(sin(itheta)*sin(iphi)*cos(ftheta) - cos(itheta)*sin(ftheta)*sin(fphi)))^2 + (-Lambda*(cos(itheta)*sin(ftheta)*cos(fphi) - sin(itheta)*cos(iphi)*cos(ftheta)))^2);
 	return MSvpm;
 }
 
 double
 ModSqrVmp(double itheta, double iphi, double ftheta, double fphi)
 {
-	int Cx;
-	int Cy;
-	int Cz;
 	
-	MSvmp = (Cx(sin(itheta)*sin(iphi)*cos(ftheta) - cos(itheta)*sin(ftheta)*sin(fphi)))^2 + (Cy(cos(itheta)*sin(ftheta)*cos(fphi) - sin(itheta)*cos(iphi)*cos(ftheta)))^2;
+	MSvmp = V^2((-Lambda*(sin(itheta)*sin(iphi)*cos(ftheta) - cos(itheta)*sin(ftheta)*sin(fphi)))^2 - (-Lambda*(cos(itheta)*sin(ftheta)*cos(fphi) - sin(itheta)*cos(iphi)*cos(ftheta)))^2);
 	return MSvmp
 }
 
@@ -266,14 +257,15 @@ main(int argc, char *argv[])
 		
 		double        sim_time = 0;
 		
-		Vector spin(0, 0, 1);
+	/*	Vector spin(0, 0, 1);
 		Vector spinOld(0, 0, 1);
 		Vector spinNew(0, 0, 1);
+	*/
 
 		double ***theta = new double**[NX];
 		double ***phi = new double**[NX];
 		double ***energy = new double**[NX]; // dynamic allocation for site energies
-		Vector ***Bfield = new Vector**[NX];
+	//	Vector ***Bfield = new Vector**[NX];
 		
 		
 		for (int ix = 0; ix < NX; ix++) {
@@ -284,7 +276,7 @@ main(int argc, char *argv[])
 			
 			energy  [ix] = new double*[NY]; 
 			
-			Bfield[ix] = new Vector*[NY];
+	//		Bfield[ix] = new Vector*[NY];
 			
 			
 			for (int iy = 0; iy < NY; iy++) { 
@@ -295,7 +287,7 @@ main(int argc, char *argv[])
 				
 				energy  [ix][iy] = new double[NZ]; 
 				
-				Bfield[ix][iy] = new Vector[NZ];
+	//			Bfield[ix][iy] = new Vector[NZ];
 				
 				for (int iz = 0; iz < NZ; iz++) {
 
@@ -321,32 +313,15 @@ main(int argc, char *argv[])
 					energy[x][y][z] = -random_exp(SIGMA);   // this is EDOS
 
 					//rand 
-					Bfield[x][y][z].x = random_gaussian(GAMMA);
+	//				Bfield[x][y][z].x = random_gaussian(GAMMA);
 					
-					Bfield[x][y][z].y = random_gaussian(GAMMA);
+	//				Bfield[x][y][z].y = random_gaussian(GAMMA);
 					
-					Bfield[x][y][z].z = random_gaussian(GAMMA);
+	//				Bfield[x][y][z].z = random_gaussian(GAMMA);
 					
 				} 
 			} 
 		} 
-
-		
-		
-	//	double ReVpp = sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*vjix + sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*vjiy + cos(theta[jx][jy][jz])*cos(theta[ix][iy][iz])*vjiz + Cz*(sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz])); 
-	//	double ReVmm = sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*vjix + sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz])*sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*vjiy + cos(theta[jx][jy][jz])*cos(theta[ix][iy][iz])*vjiz - Cz*(sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz]));
-	//	double ReVpm = Cx(sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*cos(theta[jx][jy][jz]) - cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]));
-	//	double ImVpm = -Cy(cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*cos(theta[jx][jy][jz]));
-	//	double ReVmp = Cx(sin(theta[ix][iy][iz])*sin(phi[ix][iy][iz])*cos(theta[jx][jy][jz]) - cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*sin(phi[jx][jy][jz]));
-	//	double ImVmp = Cy(cos(theta[ix][iy][iz])*sin(theta[jx][jy][jz])*cos(phi[jx][jy][jz]) - sin(theta[ix][iy][iz])*cos(phi[ix][iy][iz])*cos(theta[jx][jy][jz]));
-		
-		
-		
-		
-		
-		
-		
-		
 		
 		
 		
@@ -511,18 +486,18 @@ main(int argc, char *argv[])
 			tNew = sim_time + time;
 			
 			//Vector B(random_gaussian(GAMMA), random_gaussian(GAMMA), random_gaussian(GAMMA)); // MH w/ no field correlations
-			Vector B = Bfield[pos.x][pos.y][pos.z]; // MH
-			Vector rot_axis = B / B.abs();
+		//	Vector B = Bfield[pos.x][pos.y][pos.z]; // MH
+		//	Vector rot_axis = B / B.abs();
 			
-			angle = B.abs();
+		//	angle = B.abs();
 			
 			tOld = sim_time;
-			spinOld = spin;
+		//	spinOld = spin;
 			
 			sim_time = tNew;
 			
 			//spinNew = (1 - GAMMA * GAMMA) * spinOld;
-			spinNew = ((1 - cos(angle)) * (spinOld * rot_axis)) * rot_axis + cos(angle) * spinOld +sin(angle) * outer(rot_axis, spinOld);
+		//	spinNew = ((1 - cos(angle)) * (spinOld * rot_axis)) * rot_axis + cos(angle) * spinOld +sin(angle) * outer(rot_axis, spinOld);
 			
 			//for linear sampling
 			time_max = 100.;
@@ -537,7 +512,7 @@ main(int argc, char *argv[])
 			 
 			 }
 			 
-			 spin = spinNew;
+		//	 spin = spinNew;
 			}//*/
 			
 			// for log sampling
@@ -587,8 +562,8 @@ main(int argc, char *argv[])
 		
 		//////////////Bug Check Output Statements////////////////////
 		
-		cout << "The Sine of Pi is " << sin(Pi) << endl;
-		cout << "The Cosine of Pi is " << cos(Pi) << endl;
+		//cout << "The Sine of Pi is " << sin(Pi) << endl;
+		//cout << "The Cosine of Pi is " << cos(Pi) << endl;
 		//cout << "The theta value at point [2][3][6] is " << theta[2][3][6] << endl;
 		//cout << "The phi value at point [2][3][6] is " << phi[2][3][6] << endl;
 		//cout << "The Energy value at point [20][30][65] is " << energy[20][30][65] << endl;
@@ -603,17 +578,17 @@ main(int argc, char *argv[])
 				delete[] theta[ix][iy];
 				delete[] phi[ix][iy];
 				delete[] energy[ix][iy];
-				delete[] Bfield[ix][iy];
+		//		delete[] Bfield[ix][iy];
 			}
 			delete[] theta[ix];
 			delete[] phi[ix];
 			delete[] energy[ix];
-			delete[] Bfield[ix];
+		//	delete[] Bfield[ix];
 		}
 		delete[] theta;
 		delete[] phi;
 		delete[] energy;
-		delete[] Bfield;
+	//	delete[] Bfield;
 			
 	} 
 		
